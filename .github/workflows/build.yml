@@ -1,4 +1,4 @@
-name: Build Redmi AX5 ImmortalWrt (Minimal DNS)
+name: Build Redmi AX5 ImmortalWrt (Auto Bypass DNS)
 
 on:
   workflow_dispatch:
@@ -35,7 +35,7 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      - name: Generate Config (Minimal Bypass Router)
+      - name: Generate Config (Ultra Minimal)
         run: |
           cd immortalwrt
           echo "
@@ -49,26 +49,34 @@ jobs:
           CONFIG_PACKAGE_adguardhome=y
           CONFIG_PACKAGE_dnsmasq-full=y
 
-          # Disable WiFi
+          CONFIG_PACKAGE_firewall4=n
+
           CONFIG_PACKAGE_kmod-ath11k=n
           CONFIG_PACKAGE_kmod-mac80211=n
           CONFIG_PACKAGE_wpad-basic=n
 
-          # Disable PPP
           CONFIG_PACKAGE_ppp=n
           CONFIG_PACKAGE_ppp-mod-pppoe=n
 
-          # Disable IPv6
           CONFIG_IPV6=n
-
           " > .config
 
           make defconfig
 
-      - name: Set Default IP to 192.168.5.2
+      - name: Set Default IP and Disable DHCP + Firewall
         run: |
           cd immortalwrt
+
+          # 修改默认IP
           sed -i 's/192.168.1.1/192.168.5.2/g' package/base-files/files/bin/config_generate
+
+          # 关闭 DHCP
+          sed -i "/set network.lan.ipaddr/a\\
+          uci set dhcp.lan.ignore='1'
+          " package/base-files/files/bin/config_generate
+
+          # 禁用防火墙自启动
+          sed -i "s/START=19/START=99/" package/network/config/firewall4/files/firewall.config 2>/dev/null || true
 
       - name: Download
         run: |
@@ -83,5 +91,5 @@ jobs:
       - name: Upload Firmware
         uses: actions/upload-artifact@v4
         with:
-          name: Redmi-AX5-ImmortalWrt-Minimal
+          name: Redmi-AX5-ImmortalWrt-Auto-Bypass
           path: immortalwrt/bin/targets/ipq60xx/generic/
